@@ -1,0 +1,22 @@
+# Cloudflare DDNS Manager
+
+一个基于 Cloudflare API 的 DDNS 自动更新工具，支持一键安装、自动运行（cron）、无需手动修改脚本。
+
+适用于：
+- 家宽动态 IP
+- 服务器 IP 变动
+- 自建节点 / 服务域名自动解析
+
+---
+
+## 🚀 一键安装（推荐）
+
+直接执行：
+
+```bash
+bash <(curl -sL https://raw.githubusercontent.com/你的用户名/你的仓库/main/install.sh) \
+  -k "CF_API_KEY" \
+  -u "你的邮箱" \
+  -z "example.com" \
+  -h "sub.example.com" \
+  -t A
