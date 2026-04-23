@@ -3,7 +3,7 @@
 set -e
 
 INSTALL_PATH="/usr/local/bin/cf-ddns-manager.sh"
-REPO_RAW="https://raw.githubusercontent.com/你的用户名/你的仓库/main/cf-ddns-manager.sh"
+REPO_RAW="https://raw.githubusercontent.com/areyouokbro/ownddns/main/cf-ddns-manager.sh"
 
 echo "[*] Installing cf-ddns-manager..."
 
