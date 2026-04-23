@@ -5,17 +5,25 @@ set -e
 INSTALL_PATH="/usr/local/bin/cf-ddns-manager.sh"
 REPO_RAW="https://raw.githubusercontent.com/areyouokbro/ownddns/main/cf-ddns-manager.sh"
 
+# ===== root 检查 =====
+if [ "$EUID" -ne 0 ]; then
+  echo "[!] 请使用 root 运行"
+  exit 1
+fi
+
 echo "[*] Installing cf-ddns-manager..."
 
-# ===== 下载管理脚本 =====
-curl -fsSL "$REPO_RAW" -o "$INSTALL_PATH"
+# ===== 下载 =====
+if ! curl -fsSL "$REPO_RAW" -o "$INSTALL_PATH"; then
+    echo "[!] 下载失败"
+    exit 1
+fi
 
-# ===== 赋权 =====
 chmod +x "$INSTALL_PATH"
 
 echo "[+] Installed to $INSTALL_PATH"
 
-# ===== 判断是否带参数 =====
+# ===== 没参数就提示 =====
 if [ "$#" -eq 0 ]; then
     echo ""
     echo "Usage:"
@@ -24,6 +32,6 @@ if [ "$#" -eq 0 ]; then
     exit 0
 fi
 
-# ===== 直接执行（带参数安装 + 运行）=====
+# ===== 直接执行 =====
 echo "[*] Running manager..."
 "$INSTALL_PATH" "$@"
