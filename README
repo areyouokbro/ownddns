@@ -1,3 +1,5 @@
+
+
 # 🚀 Cloudflare DDNS Manager
 
 一个基于 Cloudflare API 的自动 DDNS 工具，支持一键安装、自动更新 DNS、定时运行与一键卸载。
@@ -11,12 +13,142 @@
 
 ---
 
+# 🔐 Cloudflare API Token
+
+本项目使用 **Cloudflare API Token** 进行认证。
+
+相比传统的 Global API Key：
+
+- ✅ 权限更小
+- ✅ 更安全
+- ✅ 可限制指定域名
+- ✅ 泄露后影响范围更低
+
+推荐创建 Token 权限：
+
+Zone → DNS → Edit Zone → Zone → Read
+
+资源范围建议限制为：
+
+Include → Specific zone → 你的域名
+
+例如：
+
+lostnet.cn
+
+---
+
 # 📦 1. 一键安装（推荐）
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/areyouokbro/ownddns/main/install.sh) \
-  -k "CF_API_KEY" \
-  -u "你的邮箱" \
+bash <(curl -fsSL https://raw.githubusercontent.com/areyouokbro/ownddns/main/install.sh) \
+  -k "CF_API_TOKEN" \
   -z "example.com" \
   -h "sub.example.com" \
   -t A
+
+参数说明：
+
+参数	说明
+
+-k	Cloudflare API Token
+-z	域名 Zone，例如 example.com
+-h	需要更新的完整域名，例如 sub.example.com
+-t	DNS 类型，可选 A 或 AAAA
+
+
+
+---
+
+📌 示例
+
+IPv4：
+
+bash <(curl -fsSL https://raw.githubusercontent.com/areyouokbro/ownddns/main/install.sh) \
+  -k "xxxxxxxxxxxxxxxx" \
+  -z "example.com" \
+  -h "home.example.com" \
+  -t A
+
+IPv6：
+
+bash <(curl -fsSL https://raw.githubusercontent.com/areyouokbro/ownddns/main/install.sh) \
+  -k "xxxxxxxxxxxxxxxx" \
+  -z "example.com" \
+  -h "home.example.com" \
+  -t AAAA
+
+
+---
+
+⚙️ 功能
+
+✅ Cloudflare DNS 自动更新
+
+✅ 支持 IPv4 / IPv6
+
+✅ 自动检测公网 IP
+
+✅ 自动安装 cron 定时任务
+
+✅ 每分钟检测 IP 变化
+
+✅ 支持一键卸载
+
+✅ 使用 Cloudflare API Token 安全认证
+
+
+
+---
+
+🗑️ 卸载
+
+执行：
+
+/usr/local/bin/cf-ddns-manager.sh uninstall
+
+即可删除：
+
+DDNS 程序
+
+定时任务
+
+本地缓存文件
+
+
+
+---
+
+📁 文件结构
+
+ownddns
+├── install.sh
+├── cf-ddns-manager.sh
+└── cf-v4-ddns.sh
+
+
+---
+
+⚠️ 注意事项
+
+1. 请勿使用 Cloudflare Global API Key。
+
+
+2. 推荐为每个域名单独创建 API Token。
+
+
+3. API Token 泄露后请立即在 Cloudflare 控制台撤销。
+
+
+4. 确保 DNS 记录已经存在，否则无法更新。
+
+
+
+
+---
+
+📄 License
+
+MIT License
+
+这个版本和你现在改的三个脚本逻辑一致，不会再出现 `-u 邮箱` 的旧说明。
