@@ -1,174 +1,275 @@
 #!/usr/bin/env bash
+
 set -o errexit
 set -o nounset
 set -o pipefail
 
+
 # Cloudflare API Token DDNS
+#
 # Usage:
-# cf-ddns.sh -k cloudflare-api-token \
-#            -h host.example.com \
-#            -z example.com \
-#            -t A|AAAA
-
-# =========================
-# Default config
-# =========================
-
-# Cloudflare API Token
-CFKEY=
-
-# Zone name
-CFZONE_NAME=
-
-# Hostname
-CFRECORD_NAME=
-
-# Record type
-CFRECORD_TYPE=A
-
-# TTL
-CFTTL=60
-
-# Force update
-FORCE=false
-
-WANIPSITE="http://ipv4.icanhazip.com"
+#
+# cf-ddns.sh \
+# -k API_TOKEN \
+# -z example.com \
+# -h sub.example.com \
+# -t A
 
 
 # =========================
-# Get parameters
+# Config
 # =========================
 
-while getopts k:h:z:t:f: opts; do
-  case ${opts} in
-    k) CFKEY=${OPTARG} ;;
-    h) CFRECORD_NAME=${OPTARG} ;;
-    z) CFZONE_NAME=${OPTARG} ;;
-    t) CFRECORD_TYPE=${OPTARG} ;;
-    f) FORCE=${OPTARG} ;;
-  esac
+CFKEY=""
+CFZONE_NAME=""
+CFRECORD_NAME=""
+CFRECORD_TYPE="A"
+
+CFTTL=120
+
+FORCE="false"
+
+
+# =========================
+# Get IP
+# =========================
+
+if [ "$CFRECORD_TYPE" = "AAAA" ]; then
+    WANIPSITE="https://ipv6.icanhazip.com"
+else
+    WANIPSITE="https://ipv4.icanhazip.com"
+fi
+
+
+
+# =========================
+# Arguments
+# =========================
+
+while getopts "k:z:h:t:f:" opt
+do
+
+case $opt in
+
+k)
+    CFKEY="$OPTARG"
+    ;;
+
+z)
+    CFZONE_NAME="$OPTARG"
+    ;;
+
+h)
+    CFRECORD_NAME="$OPTARG"
+    ;;
+
+t)
+    CFRECORD_TYPE="$OPTARG"
+    ;;
+
+f)
+    FORCE="$OPTARG"
+    ;;
+
+*)
+    echo "Usage:"
+    echo "$0 -k TOKEN -z ZONE -h HOST [-t A|AAAA]"
+    exit 2
+    ;;
+
+esac
+
 done
 
 
+
 # =========================
-# Check params
+# Check
 # =========================
 
-if [ "$CFKEY" = "" ]; then
-  echo "Missing Cloudflare API Token"
-  echo "Use -k TOKEN"
-  exit 2
-fi
 
-if [ "$CFRECORD_NAME" = "" ]; then
-  echo "Missing hostname"
-  exit 2
-fi
-
-if [ "$CFZONE_NAME" = "" ]; then
-  echo "Missing zone"
-  exit 2
+if [ -z "$CFKEY" ]; then
+    echo "Missing Cloudflare API Token"
+    exit 2
 fi
 
 
-# =========================
-# IPv4 / IPv6
-# =========================
-
-if [ "$CFRECORD_TYPE" = "A" ]; then
-  WANIPSITE="http://ipv4.icanhazip.com"
-elif [ "$CFRECORD_TYPE" = "AAAA" ]; then
-  WANIPSITE="http://ipv6.icanhazip.com"
-else
-  echo "Invalid record type"
-  exit 2
+if [ -z "$CFZONE_NAME" ]; then
+    echo "Missing Zone"
+    exit 2
 fi
 
 
-# =========================
-# FQDN check
-# =========================
+if [ -z "$CFRECORD_NAME" ]; then
+    echo "Missing Host"
+    exit 2
+fi
 
-if [ "$CFRECORD_NAME" != "$CFZONE_NAME" ] && \
-   ! [ -z "${CFRECORD_NAME##*$CFZONE_NAME}" ]; then
 
-  CFRECORD_NAME="$CFRECORD_NAME.$CFZONE_NAME"
-  echo "Hostname converted to $CFRECORD_NAME"
+
+if [ "$CFRECORD_TYPE" != "A" ] &&
+   [ "$CFRECORD_TYPE" != "AAAA" ]; then
+
+    echo "Invalid type"
+    exit 2
 
 fi
+
+
+
+# =========================
+# FQDN
+# =========================
+
+
+if [ "$CFRECORD_NAME" != "$CFZONE_NAME" ] &&
+   [[ "$CFRECORD_NAME" != *"$CFZONE_NAME" ]]; then
+
+    CFRECORD_NAME="$CFRECORD_NAME.$CFZONE_NAME"
+
+fi
+
 
 
 # =========================
 # Get WAN IP
 # =========================
 
-WAN_IP=$(curl -s "$WANIPSITE")
 
-WAN_IP_FILE=$HOME/.cf-wan_ip_$CFRECORD_NAME.txt
+if [ "$CFRECORD_TYPE" = "AAAA" ]; then
 
+    WAN_IP=$(curl -s https://ipv6.icanhazip.com | tr -d '\r\n')
 
-if [ -f "$WAN_IP_FILE" ]; then
-    OLD_WAN_IP=$(cat "$WAN_IP_FILE")
 else
-    OLD_WAN_IP=""
+
+    WAN_IP=$(curl -s https://ipv4.icanhazip.com | tr -d '\r\n')
+
 fi
 
 
-if [ "$WAN_IP" = "$OLD_WAN_IP" ] && [ "$FORCE" = false ]; then
+
+if [ -z "$WAN_IP" ]; then
+
+    echo "Failed get WAN IP"
+    exit 1
+
+fi
+
+
+
+echo "Current IP: $WAN_IP"
+
+
+
+# =========================
+# IP Cache
+# =========================
+
+
+WAN_IP_FILE="$HOME/.cf-wan_ip_$CFRECORD_NAME.txt"
+
+
+OLD_WAN_IP=""
+
+
+if [ -f "$WAN_IP_FILE" ]; then
+
+    OLD_WAN_IP=$(cat "$WAN_IP_FILE")
+
+fi
+
+
+
+echo "Old IP: $OLD_WAN_IP"
+
+
+
+if [[ "$WAN_IP" == "$OLD_WAN_IP" ]] &&
+   [[ "$FORCE" == "false" ]]; then
+
     echo "WAN IP unchanged"
     exit 0
 
-    # =========================
-# Get Cloudflare IDs
+fi
+
+# =========================
+# Cloudflare API Headers
 # =========================
 
-ID_FILE=$HOME/.cf-id_$CFRECORD_NAME.txt
+AUTH_HEADER="Authorization: Bearer $CFKEY"
+
+
+# =========================
+# Get Zone ID / Record ID
+# =========================
+
+ID_FILE="$HOME/.cf-id_$CFRECORD_NAME.txt"
+
 
 if [ -f "$ID_FILE" ] && \
-   [ "$(wc -l < "$ID_FILE")" = "4" ] && \
+   [ "$(wc -l < "$ID_FILE")" -eq 4 ] && \
    [ "$(sed -n '3p' "$ID_FILE")" = "$CFZONE_NAME" ] && \
    [ "$(sed -n '4p' "$ID_FILE")" = "$CFRECORD_NAME" ]; then
+
 
     CFZONE_ID=$(sed -n '1p' "$ID_FILE")
     CFRECORD_ID=$(sed -n '2p' "$ID_FILE")
 
+
+    echo "Using cached IDs"
+
+
 else
 
-    echo "Updating zone_identifier & record_identifier"
+
+    echo "Getting Cloudflare IDs..."
 
 
-    # Get Zone ID
-    CFZONE_ID=$(curl -s -X GET \
+    CFZONE_ID=$(curl -s \
+    -X GET \
     "https://api.cloudflare.com/client/v4/zones?name=$CFZONE_NAME" \
-    -H "Authorization: Bearer $CFKEY" \
+    -H "$AUTH_HEADER" \
     -H "Content-Type: application/json" \
-    | grep -Po '(?<="id":")[^"]*' | head -1)
+    | grep -Po '(?<="id":")[^"]*' \
+    | head -1)
+
 
 
     if [ -z "$CFZONE_ID" ]; then
+
         echo "Failed to get Zone ID"
+
         exit 1
+
     fi
 
 
-    # Get Record ID
-    CFRECORD_ID=$(curl -s -X GET \
+
+    CFRECORD_ID=$(curl -s \
+    -X GET \
     "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID/dns_records?name=$CFRECORD_NAME" \
-    -H "Authorization: Bearer $CFKEY" \
+    -H "$AUTH_HEADER" \
     -H "Content-Type: application/json" \
-    | grep -Po '(?<="id":")[^"]*' | head -1)
+    | grep -Po '(?<="id":")[^"]*' \
+    | head -1)
+
 
 
     if [ -z "$CFRECORD_ID" ]; then
-        echo "Failed to get DNS Record ID"
+
+        echo "Failed to get Record ID"
+
         exit 1
+
     fi
+
 
 
     echo "$CFZONE_ID" > "$ID_FILE"
     echo "$CFRECORD_ID" >> "$ID_FILE"
     echo "$CFZONE_NAME" >> "$ID_FILE"
     echo "$CFRECORD_NAME" >> "$ID_FILE"
+
 
 fi
 
@@ -178,28 +279,41 @@ fi
 # Update DNS
 # =========================
 
-echo "Updating DNS to $WAN_IP"
+
+echo "Updating DNS..."
 
 
-RESPONSE=$(curl -s -X PUT \
+
+RESPONSE=$(curl -s \
+-X PUT \
 "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID/dns_records/$CFRECORD_ID" \
--H "Authorization: Bearer $CFKEY" \
+-H "$AUTH_HEADER" \
 -H "Content-Type: application/json" \
---data "{\"id\":\"$CFZONE_ID\",\"type\":\"$CFRECORD_TYPE\",\"name\":\"$CFRECORD_NAME\",\"content\":\"$WAN_IP\",\"ttl\":$CFTTL}")
+--data "{
+\"type\":\"$CFRECORD_TYPE\",
+\"name\":\"$CFRECORD_NAME\",
+\"content\":\"$WAN_IP\",
+\"ttl\":$CFTTL
+}")
+
 
 
 if echo "$RESPONSE" | grep -q '"success":true'; then
 
-    echo "Updated successfully!"
+
+    echo "DNS update successful"
+
     echo "$WAN_IP" > "$WAN_IP_FILE"
-    exit 0
+
 
 else
 
-    echo "Something went wrong :("
-    echo "Response:"
+
+    echo "DNS update failed"
+
     echo "$RESPONSE"
+
     exit 1
 
-fi
+
 fi
