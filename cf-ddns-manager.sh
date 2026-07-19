@@ -2,7 +2,9 @@
 
 set -e
 
-DDNS_URL="https://raw.githubusercontent.com/areyouokbro/ownddns/main/cf-ddns.sh"
+
+
+DDNS_URL="https://raw.githubusercontent.com/areyouokbro/ownddns/main/cf-v4-ddns.sh"
 
 DDNS_SCRIPT="/usr/local/bin/cf-ddns.sh"
 WRAPPER="/usr/local/bin/cf-ddns-run.sh"
