@@ -27,7 +27,7 @@ CFRECORD_NAME=
 CFRECORD_TYPE=A
 
 # TTL
-CFTTL=120
+CFTTL=60
 
 # Force update
 FORCE=false
